@@ -44,7 +44,7 @@
 
   <script type="text/python">
 from browser import document, html, prompt
-import heapq, time
+import heapq
 
 # Heurístico greedy: first-fit minimizando capacidad remanente
 def greedy(h, g):
@@ -114,22 +114,18 @@ def repartoHabitaciones(h, g):
                     heapq.heappush(A, (-opt, child))
     return best, fx
 
-# UI helpers
+# Helpers UI
 def add_room(name="", cap=20):
-    idx = len(room_names); room_names.append(name)
+    idx = len(room_names)
+    room_names.append(name)
     row = html.TR()
     row <= html.TD(html.INPUT(type="text", value=name, Class="name"))
     row <= html.TD(html.INPUT(type="number", value=cap, Class="cap"))
     btn = html.BUTTON("Borrar", Class="action-btn")
     btn.bind("click", lambda ev, r=row, i=idx: (r.remove(), room_names.pop(i)))
-    row <= html.TD(btn); document["rooms-table"] <= row
+    row <= html.TD(btn)
+    document["rooms-table"] <= row
 
-# Inicializa habitaciones por defecto
-room_names = []
-for nm in ["C","A","B","R","I","LL","A","S"] + [f"M{i}" for i in range(1,9)]:
-    add_room(nm, 20)
-
-# Dinámico grupos
 def add_group(ch=0, mo=0):
     rows = document["groups-table"].get(selector="tr")[1:]
     gid = len(rows) + 1
@@ -139,23 +135,34 @@ def add_group(ch=0, mo=0):
     row <= html.TD(html.INPUT(type="number", value=mo, Class="groupmo"))
     btn = html.BUTTON("Borrar", Class="action-btn")
     btn.bind("click", lambda ev, r=row: r.remove())
-    row <= html.TD(btn); document["groups-table"] <= row
+    row <= html.TD(btn)
+    document["groups-table"] <= row
+
+# Inicializar valores por defecto
+room_names = []
+for name in ["C","A","B","R","I","LL","A2","S"] + [f"M{i}" for i in range(1,9)]:
+    add_room(name, 20)
+for _ in range(12):
+    add_group(10, 10)
 
 # Run
  def run(ev=None):
-    document["error"].text = ""; document["result"].html = ""
+    document["error"].text = ""
+    document["result"].html = ""
     try:
-        h = [int(i.value) for i in document.get(selector="#rooms-table .cap")]
+        h = [int(inp.value) for inp in document.get(selector="#rooms-table .cap")]
         g = []
-        for r in document.get(selector="#groups-table tr")[1:]:
-            inp = r.get(selector="input")
+        for row in document.get(selector="#groups-table tr")[1:]:
+            inp = row.get(selector="input")
             g.extend([int(inp[0].value), int(inp[1].value)])
     except Exception as e:
-        document["error"].text = f"Error lectura: {e}"; return
+        document["error"].text = f"Error lectura: {e}"
+        return
     try:
         (asig, rem), vacias = repartoHabitaciones(h, g)
     except Exception as e:
-        document["error"].text = f"Error reparto: {e}"; return
+        document["error"].text = f"Error reparto: {e}"
+        return
     out = ["<h2>Asignación</h2><table><tr><th>Grupo</th><th>Sexo</th><th>Hab</th></tr>"]
     for idx, hab in enumerate(asig):
         grp = idx//2 + 1; sexo = "CHICOS" if idx%2==0 else "CHICAS"
@@ -165,9 +172,10 @@ def add_group(ch=0, mo=0):
     for i, cap in enumerate(rem): out.append(f"<tr><td>{room_names[i]}</td><td>{cap}</td></tr>")
     out.append(f"</table><p><strong>Vacías:</strong> {vacias}</p>")
     document["result"].html = "".join(out)
- document["btn"].bind("click", run)
- document["add-room"].bind("click", lambda e: add_room(prompt("Nombre de habitación:"), 20))
- document["add-group"].bind("click", lambda e: add_group())
+
+document["btn"].bind("click", run)
+document["add-room"].bind("click", lambda e: add_room(prompt("Nombre de habitación:"), 20))
+document["add-group"].bind("click", lambda e: add_group())
   </script>
 
 </body>
