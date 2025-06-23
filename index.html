@@ -79,7 +79,7 @@ def repartoHabitaciones(h, g):
                 if sc > fx: heapq.heappush(A, (-sc, child))
     return sol, fx
 
-# Dinámico: listas globales de nombres y capacidades
+# Listas globales
 room_names = []
 
 def add_room(name="", cap=20):
@@ -89,45 +89,40 @@ def add_room(name="", cap=20):
     row <= html.TD(html.INPUT(type="text", value=name, Class="name"))
     row <= html.TD(html.INPUT(type="number", value=cap, Class="cap"))
     del_btn = html.BUTTON("Borrar", Class="action-btn")
-    def delete(ev):
-        document["rooms-table"].remove(row)
-        room_names.pop(idx)
-    del_btn.bind("click", delete)
+    del_btn.bind("click", lambda ev, r=row: (r.remove(), room_names.pop(idx)))
     row <= html.TD(del_btn)
     document["rooms-table"] <= row
 
-# Inicializar con valores por defecto
+# Inicializar habitaciones por defecto
 for name in ["C","A","B","R","I","LL","A","S"] + [f"M{i}" for i in range(1,9)]:
     add_room(name, 20)
 
 # Gestión de grupos
-
 def add_group(ch=0, mo=0):
-    groups = document["groups-table"].get(selector="tr")[1:]
-    grp_id = len(groups) + 1
+    rows = document["groups-table"].get(selector="tr")[1:]
+    grp_id = len(rows) + 1
     row = html.TR()
     row <= html.TD(f"{grp_id}")
     row <= html.TD(html.INPUT(type="number", value=ch, Class="groupch"))
     row <= html.TD(html.INPUT(type="number", value=mo, Class="groupmo"))
     del_btn = html.BUTTON("Borrar", Class="action-btn")
-    def delete_row(ev): row.remove()
-    del_btn.bind("click", delete_row)
+    del_btn.bind("click", lambda ev, r=row: r.remove())
     row <= html.TD(del_btn)
     document["groups-table"] <= row
 
-def init_groups():
-    # ejemplo inicial hasta 4
-    for ch, mo in [(20,3),(4,5),(6,0)]: add_group(ch,mo)
-init_groups()
+# Inicializar 12 grupos con 10 chicos y 10 chicas cada uno
+for _ in range(12):
+    add_group(10, 10)
 
+# Función principal
 def run(ev=None):
     document["error"].text = ""; document["result"].html = ""
     try:
         h = [int(inp.value) for inp in document.get(selector="#rooms-table .cap")]
         g = []
         for row in document.get(selector="#groups-table tr")[1:]:
-            inputs = row.get(selector="input")
-            g.append(int(inputs[0].value)); g.append(int(inputs[1].value))
+            inp = row.get(selector="input")
+            g.append(int(inp[0].value)); g.append(int(inp[1].value))
     except Exception as e:
         document["error"].text = f"Error lectura: {e}"
         return
@@ -136,7 +131,6 @@ def run(ev=None):
     except Exception as e:
         document["error"].text = f"Error reparto: {e}"
         return
-    # Mostrar
     html_out = ["<h2>Asignación</h2><table><tr><th>Grupo</th><th>Sexo</th><th>Hab</th></tr>"]
     for idx, hab in enumerate(asig):
         grp = idx//2 + 1; sexo = "CHICOS" if idx%2==0 else "CHICAS"
@@ -146,8 +140,8 @@ def run(ev=None):
     for i, cap in enumerate(rem): html_out.append(f"<tr><td>{room_names[i]}</td><td>{cap}</td></tr>")
     html_out.append(f"</table><p><strong>Vacías:</strong> {vacias}</p>")
     document["result"].html = "".join(html_out)
-document["btn"].bind("click", run)
 
+document["btn"].bind("click", run)
 document["add-room"].bind("click", lambda e: add_room(prompt("Nombre de habitación:"), 20))
 document["add-group"].bind("click", lambda e: add_group())
   </script>
