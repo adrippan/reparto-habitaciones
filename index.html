@@ -105,8 +105,11 @@ def add_group(ch=0, mo=0):
     btn.bind("click", lambda ev, r=row: r.remove())
     row <= html.TD(btn); document["groups-table"] <= row
 
-# No default groups
 
+# 12 groups by default 10 chicos, 10 chicas
+def init_groups():
+    for i in range(12):
+        add_group(10, 10)
 # Run
 def run(ev=None):
     document["error"].text = ""; document["result"].html = ""
