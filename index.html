@@ -4,9 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reparto Habitaciones</title>
-  <!-- PWA manifest -->
   <link rel="manifest" href="manifest.json"/>
-  <!-- Brython -->
   <script src="https://cdn.jsdelivr.net/npm/brython@3.9.5/brython.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/brython@3.9.5/brython_stdlib.min.js"></script>
 </head>
@@ -38,39 +36,75 @@
 
   <pre id="output" style="white-space: pre-wrap; border:1px solid #ccc; padding:8px;"></pre>
 
-  <!-- Tu script Python -->
-  <script type="text/python" src="repartoHabitaciones.py"></script>
-
-  <!-- Binding y lógica Brython -->
+  <!-- Toda la lógica en un solo bloque -->
   <script type="text/python">
+import heapq, json
 from browser import document
-import json
-import repartoHabitaciones as rh
+
+def repartoHabitaciones(h, g):
+    def cota_optimista(estado):
+        asig, habs = estado
+        return len(habs) - len(set(asig))
+
+    def branch(estado):
+        asig, habs = estado
+        idx = len(asig)
+        hijos = []
+        for hab, capacidad in enumerate(habs):
+            if g[idx] <= capacidad:
+                es_chico = (idx % 2 == 0)
+                habs_chicos = [h for pos,h in enumerate(asig) if pos%2==0]
+                habs_chicas = [h for pos,h in enumerate(asig) if pos%2!=0]
+                # chicos no en habitaciones de chicas, y viceversa
+                if (es_chico and hab not in habs_chicas) or (not es_chico and hab not in habs_chicos):
+                    new_habs = habs.copy()
+                    new_habs[hab] -= g[idx]
+                    opt = cota_optimista((asig+[hab], new_habs))
+                    hijos.append((opt, (asig+[hab], new_habs)))
+        return hijos
+
+    def is_complete(estado):
+        return len(estado[0]) == len(g)
+
+    A = []
+    fx = 0
+    ini = ([], h.copy())
+    heapq.heappush(A, (-cota_optimista(ini), ini))
+
+    while A and -A[0][0] > fx:
+        _, estado = heapq.heappop(A)
+        for sc, child in branch(estado):
+            if is_complete(child):
+                if sc > fx:
+                    fx, sol = sc, child
+            else:
+                if sc > fx:
+                    heapq.heappush(A, (-sc, child))
+    return sol, fx
 
 def run(ev=None):
-    out_el = document["output"]
+    out = document["output"]
     try:
         h = json.loads(document["h"].value)
         g = json.loads(document["g"].value)
         mapping = json.loads(document["mapping"].value)
     except Exception as e:
-        out_el.text = f"Error al parsear JSON:\n{e}"
+        out.text = "Error al parsear JSON:\n" + str(e)
         return
 
     try:
-        sol, vacias = rh.repartoHabitaciones(h, g)
+        (asig, rem), vacias = repartoHabitaciones(h, g)
     except Exception as e:
-        out_el.text = f"Error en repartoHabitaciones:\n{e}"
+        out.text = "Error en repartoHabitaciones:\n" + str(e)
         return
 
     lines = []
-    for i, hab in enumerate(sol[0]):
-        num = i // 2 + 1
-        sexo = "CHICOS" if i % 2 == 0 else "CHICAS"
-        lines.append(f"G{num}: {sexo} → habitación {mapping.get(str(hab), hab)}")
+    for idx, hab in enumerate(asig):
+        grupo = idx//2 + 1
+        sexo = "CHICOS" if idx%2==0 else "CHICAS"
+        lines.append(f"G{grupo}: {sexo} → hab {mapping.get(str(hab), hab)}")
     lines.append(f"\nHabitaciones vacías: {vacias}")
-
-    out_el.text = "\n".join(lines)
+    out.text = "\n".join(lines)
 
 document["btn"].bind("click", run)
   </script>
