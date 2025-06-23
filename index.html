@@ -38,7 +38,6 @@
   </table>
 
   <button id="btn" type="button">Asignar</button>
-
   <pre id="error"></pre>
   <div id="result"></div>
 
@@ -47,7 +46,6 @@ from browser import document, html, prompt
 import heapq
 
 # Heurístico greedy: first-fit minimizando capacidad remanente
-
 def greedy(h, g):
     n = len(h)
     asig = []
@@ -60,10 +58,8 @@ def greedy(h, g):
         best_rem = None
         for i in range(n):
             if habs[i] >= size:
-                if es_chico and i in usados_chicas:
-                    continue
-                if not es_chico and i in usados_chicos:
-                    continue
+                if es_chico and i in usados_chicas: continue
+                if not es_chico and i in usados_chicos: continue
                 rem = habs[i] - size
                 if best is None or rem < best_rem:
                     best, best_rem = i, rem
@@ -71,24 +67,44 @@ def greedy(h, g):
             return (asig, habs), 0
         asig.append(best)
         habs[best] -= size
-        if es_chico:
-            usados_chicos.add(best)
-        else:
-            usados_chicas.add(best)
+        if es_chico: usados_chicos.add(best)
+        else:        usados_chicas.add(best)
     vacias = len(h) - len(set(asig))
     return (asig, habs), vacias
 
-# Branch & Bound con poda usando cota optimista
+# Cálculo aproximado de mínimo cuartos necesarios (First-fit decreasing)
+def min_rooms_needed(habs, groups):
+    caps = sorted(habs, reverse=True)
+    grs = sorted(groups, reverse=True)
+    used = [0]*len(caps)
+    rooms = 0
+    for size in grs:
+        placed = False
+        for j in range(rooms):
+            if caps[j] - used[j] >= size:
+                used[j] += size
+                placed = True
+                break
+        if not placed:
+            if rooms >= len(caps): return float('inf')
+            used[rooms] = size
+            rooms += 1
+    return rooms
+
+# Branch & Bound con cota optimista mejorada
 
 def repartoHabitaciones(h, g):
-    # 1) solución inicial greedy para fx
+    # Solución inicial
     (asig0, habs0), fx = greedy(h, g)
     best = (asig0, habs0)
 
-    # 2) definiciones de B&B
     def cota_optimista(estado):
         asig, habs = estado
-        return len(habs) - len(set(asig))
+        idx = len(asig)
+        rem = g[idx:]
+        need = min_rooms_needed(habs, rem)
+        usados = len(set(asig))
+        return len(habs) - (usados + need)
 
     def branch(estado):
         asig, habs = estado
@@ -99,35 +115,30 @@ def repartoHabitaciones(h, g):
         for i, cap in enumerate(habs):
             if g[idx] <= cap:
                 es_chico = (idx % 2 == 0)
-                if (es_chico and i not in habs_chicas) or (not es_chico and i not in habs_chicos):
-                    nh = habs.copy()
-                    nh[i] -= g[idx]
-                    opt = cota_optimista((asig + [i], nh))
-                    hijos.append((opt, (asig + [i], nh)))
+                if (es_chico and i in habs_chicas) or (not es_chico and i in habs_chicos): continue
+                nh = habs.copy(); nh[i] -= g[idx]
+                opt = cota_optimista((asig+[i], nh))
+                hijos.append((opt, (asig+[i], nh)))
         return hijos
 
-    def is_complete(estado):
-        return len(estado[0]) == len(g)
+    def is_complete(estado): return len(estado[0]) == len(g)
 
-    # 3) inicializa heap
+    # Inicializar heap
     A = []
-    init = ([], h.copy())
-    heapq.heappush(A, (-cota_optimista(init), init))
+    inicial = ([], h.copy())
+    heapq.heappush(A, (-cota_optimista(inicial), inicial))
 
-    # 4) Bucle principal
+    # Ramificación y poda
     while A and -A[0][0] > fx:
         _, estado = heapq.heappop(A)
         for opt, child in branch(estado):
             if is_complete(child):
-                if opt > fx:
-                    fx, best = opt, child
+                if opt > fx: fx, best = opt, child
             else:
-                if opt > fx:
-                    heapq.heappush(A, (-opt, child))
+                if opt > fx: heapq.heappush(A, (-opt, child))
     return best, fx
 
-# UI helpers
-
+# UI dinámico
 room_names = []
 def add_room(name="", cap=20):
     idx = len(room_names)
@@ -140,8 +151,9 @@ def add_room(name="", cap=20):
     row <= html.TD(btn)
     document["rooms-table"] <= row
 
-
-def add_group(ch=0, mo=0):
+add_group = lambda ch=10, mo=10: None
+# redefiniendo con función completa
+def add_group(ch=10, mo=10):
     rows = document["groups-table"].get(selector="tr")[1:]
     gid = len(rows) + 1
     row = html.TR()
@@ -153,45 +165,36 @@ def add_group(ch=0, mo=0):
     row <= html.TD(btn)
     document["groups-table"] <= row
 
-# Inicializar valores por defecto
-for name in ["C","A","B","R","I","LL","A2","S"] + [f"M{i}" for i in range(1,9)]:
-    add_room(name, 20)
-for _ in range(12):
-    add_group(10, 10)
+# Inicializar por defecto
+for nm in ["C","A","B","R","I","LL","A2","S"] + [f"M{i}" for i in range(1,9)]: add_room(nm, 20)
+for _ in range(12): add_group(10, 10)
 
-# Run
+# Ejecutar reparto
 def run(ev=None):
-    document["error"].text = ""
-    document["result"].html = ""
+    document["error"].text = ""; document["result"].html = ""
     try:
-        h = [int(inp.value) for inp in document.get(selector="#rooms-table .cap")]
-        g = []
+        h_caps = [int(inp.value) for inp in document.get(selector="#rooms-table .cap")]
+        g_list = []
         for row in document.get(selector="#groups-table tr")[1:]:
-            inp = row.get(selector="input")
-            g.extend([int(inp[0].value), int(inp[1].value)])
+            inps = row.get(selector="input")
+            g_list.extend([int(inps[0].value), int(inps[1].value)])
     except Exception as e:
-        document["error"].text = f"Error lectura: {e}"
-        return
+        document["error"].text = f"Error lectura: {e}"; return
     try:
-        (asig, rem), vacias = repartoHabitaciones(h, g)
+        (asig, rem), vacias = repartoHabitaciones(h_caps, g_list)
     except Exception as e:
-        document["error"].text = f"Error reparto: {e}"
-        return
+        document["error"].text = f"Error reparto: {e}"; return
     out = ["<h2>Asignación</h2><table><tr><th>Grupo</th><th>Sexo</th><th>Hab</th></tr>"]
     for idx, hab in enumerate(asig):
-        grp = idx//2 + 1
-        sexo = "CHICOS" if idx%2==0 else "CHICAS"
+        grp = idx//2 + 1; sexo = "CHICOS" if idx%2==0 else "CHICAS"
         out.append(f"<tr><td>G{grp}</td><td>{sexo}</td><td>{room_names[hab]}</td></tr>")
     out.append("</table>")
     out.append("<h2>Capacidades restantes</h2><table><tr><th>Hab</th><th>Cap</th></tr>")
-    for i, cap in enumerate(rem):
-        out.append(f"<tr><td>{room_names[i]}</td><td>{cap}</td></tr>")
+    for i, cap in enumerate(rem): out.append(f"<tr><td>{room_names[i]}</td><td>{cap}</td></tr>")
     out.append(f"</table><p><strong>Vacías:</strong> {vacias}</p>")
     document["result"].html = "".join(out)
 
 document["btn"].bind("click", run)
-
-# Bind acciones
 document["add-room"].bind("click", lambda e: add_room(prompt("Nombre de habitación:"), 20))
 document["add-group"].bind("click", lambda e: add_group())
   </script>
