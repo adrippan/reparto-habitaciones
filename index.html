@@ -110,6 +110,8 @@ def add_group(ch=0, mo=0):
 def init_groups():
     for i in range(12):
         add_group(10, 10)
+init_groups()
+
 # Run
 def run(ev=None):
     document["error"].text = ""; document["result"].html = ""
