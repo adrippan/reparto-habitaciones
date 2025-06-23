@@ -18,7 +18,7 @@ def repartoHabitaciones(h, g):
                 chico = (idx % 2 == 0)
                 habs_chicos = [h for pos, h in enumerate(asig) if pos % 2 == 0]
                 habs_chicas = [h for pos, h in enumerate(asig) if pos % 2 != 0]
-                if (chico and hab not in habs_chicos) or (not chico and hab not in habs_chicas):
+                if (chico and hab not in habs_chicas) or (not chico and hab not in habs_chicos):
                     habs_new = habs.copy()
                     habs_new[hab] -= g[idx]
                     opt = cota_optimista((asig + [hab], habs_new))

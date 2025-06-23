@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reparto Habitaciones</title>
-  <link rel="manifest" href="manifest.json" />
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json"/>
+  <!-- Brython -->
   <script src="https://cdn.jsdelivr.net/npm/brython@3.9.5/brython.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/brython@3.9.5/brython_stdlib.min.js"></script>
 </head>
@@ -12,39 +14,34 @@
 
   <h1>Reparto de Habitaciones</h1>
 
-  <form id="form">
-    <label>
-      Habitaciones h (JSON):
-      <br>
+  <div>
+    <label>Habitaciones h (JSON):<br>
       <textarea id="h" rows="2">[20,6,8,10,20,1,1,1,1,1,1,1,1,1,1,1,1,1,1]</textarea>
     </label>
-    <br><br>
+  </div>
 
-    <label>
-      Grupos g (JSON):
-      <br>
+  <div>
+    <label>Grupos g (JSON):<br>
       <textarea id="g" rows="2">[20,3,4,5,6]</textarea>
     </label>
-    <br><br>
+  </div>
 
-    <label>
-      Mapping (JSON):<br>
-      <!-- TODO: sin saltos de línea ni indent -->
-      <textarea id="mapping" rows="2">
-{"0":"C","1":"A","2":"B","3":"R","4":"I","5":"L","6":"LL","7":"A2","8":"S","9":"M1","10":"M2","11":"M3","12":"M4","13":"M5","14":"M6","15":"M7","16":"M8","17":"M9","18":"M10"}
-      </textarea>
+  <div>
+    <label>Mapping (JSON):<br>
+      <textarea id="mapping" rows="2">{"0":"C","1":"A","2":"B","3":"R","4":"I","5":"L","6":"LL","7":"A2","8":"S","9":"M1","10":"M2","11":"M3","12":"M4","13":"M5","14":"M6","15":"M7","16":"M8","17":"M9","18":"M10"}</textarea>
     </label>
-    <br><br>
+  </div>
 
+  <div style="margin:1em 0;">
     <button id="btn" type="button">Asignar</button>
-  </form>
+  </div>
 
   <pre id="output" style="white-space: pre-wrap; border:1px solid #ccc; padding:8px;"></pre>
 
-  <!-- Importa tu módulo Python -->
+  <!-- Tu script Python -->
   <script type="text/python" src="repartoHabitaciones.py"></script>
 
-  <!-- Brython: binding + manejo de errores -->
+  <!-- Binding y lógica Brython -->
   <script type="text/python">
 from browser import document
 import json
