@@ -14,7 +14,7 @@
 
   <h1>Reparto de Habitaciones</h1>
 
-  <!-- Formulario con los tres inputs que faltaban -->
+  <!-- Formulario -->
   <form id="form">
     <label>
       Habitaciones h (JSON):
@@ -31,12 +31,13 @@
     <label>
       Mapping (JSON):
       <br>
-      <textarea id="mapping" rows="3">
+      <textarea id="mapping" rows="4">
 {"0":"C","1":"A","2":"B","3":"R","4":"I","5":"L","6":"LL","7":"A2","8":"S","9":"M1","10":"M2","11":"M3","12":"M4","13":"M5","14":"M6","15":"M7","16":"M8","17":"M9","18":"M10"}
       </textarea>
     </label>
     <br><br>
-    <button type="button" onclick="run()">Asignar</button>
+    <!-- Botón sin onclick -->
+    <button id="btn" type="button">Asignar</button>
   </form>
 
   <!-- Zona de salida -->
@@ -45,7 +46,7 @@
   <!-- Importa tu módulo Python -->
   <script type="text/python" src="repartoHabitaciones.py"></script>
 
-  <!-- Aquí va el bloque Brython que lee el form y muestra la salida -->
+  <!-- Bloque Brython con el binding correcto -->
   <script type="text/python">
 from browser import document
 import json
@@ -56,20 +57,20 @@ def run(ev=None):
     h = json.loads(document["h"].value)
     g = json.loads(document["g"].value)
     mapping = json.loads(document["mapping"].value)
-    # llama a tu función
+    # llama a tu función de asignación
     sol, vacias = rh.repartoHabitaciones(h, g)
-    # prepara texto
+    # prepara texto de salida
     lines = []
     for i, hab in enumerate(sol[0]):
-        num = i//2 + 1
-        sexo = "CHICOS" if i%2==0 else "CHICAS"
+        num = i // 2 + 1
+        sexo = "CHICOS" if i % 2 == 0 else "CHICAS"
         lines.append(f"G{num}: {sexo} → habitación {mapping.get(str(hab), hab)}")
     lines.append(f"\nHabitaciones vacías: {vacias}")
     # vuelca al <pre>
     document["output"].text = "\n".join(lines)
 
-# opcional: bind si usas type="submit" en vez de button
-# document["form"].bind("submit", run)
+# Aquí enlazamos el click del botón con la función run
+document["btn"].bind("click", run)
   </script>
 
 </body>
