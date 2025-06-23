@@ -13,13 +13,12 @@
     table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
     th, td { padding: 0.5rem; border: 1px solid #ccc; text-align: left; }
     th { background: #eaeaea; }
-    label { display: block; margin-bottom: 0.5rem; }
-    input[type=number], input[type=text] { width: 100%; padding: 0.3rem; box-sizing: border-box; }
     button { background: #0a5e2b; color: #fff; border: none; padding: 0.7rem 1.2rem; border-radius: 5px; cursor: pointer; font-size: 1rem; transition: background 0.2s; margin: 0.2rem; }
     button:hover { background: #0e7c3a; }
+    .action-btn { padding: 0.3rem 0.6rem; font-size: 0.9rem; }
+    input[type=number], input[type=text] { width: 100%; padding: 0.3rem; box-sizing: border-box; }
     #error { color: #c00; margin-top: 1rem; }
     #result table { margin-top: 1rem; }
-    .action-btn { padding: 0.3rem 0.6rem; font-size: 0.9rem; }
   </style>
 </head>
 <body onload="brython()">
@@ -47,82 +46,92 @@
 from browser import document, html, prompt
 import heapq, json
 
+# Branch & Bound algorithm original
+
 def repartoHabitaciones(h, g):
     def cota_optimista(estado):
         asig, habs = estado
         return len(habs) - len(set(asig))
+
     def branch(estado):
         asig, habs = estado
-        idx = len(asig)
         hijos = []
-        for hab, cap in enumerate(habs):
-            if g[idx] <= cap:
+        idx = len(asig)
+        # separar asignaciones previas para sexo
+        habs_chicos = [hab for pos, hab in enumerate(asig) if pos % 2 == 0]
+        habs_chicas = [hab for pos, hab in enumerate(asig) if pos % 2 != 0]
+        for hab, capacidad in enumerate(habs):
+            if g[idx] <= capacidad:
                 es_chico = (idx % 2 == 0)
-                habs_chicos = [h for pos,h in enumerate(asig) if pos%2==0]
-                habs_chicas = [h for pos,h in enumerate(asig) if pos%2!=0]
                 if (es_chico and hab not in habs_chicas) or (not es_chico and hab not in habs_chicos):
-                    new_h = habs.copy(); new_h[hab] -= g[idx]
-                    opt = cota_optimista((asig+[hab], new_h))
-                    hijos.append((opt, (asig+[hab], new_h)))
+                    new_habs = habs.copy()
+                    new_habs[hab] -= g[idx]
+                    opt = cota_optimista((asig + [hab], new_habs))
+                    hijos.append((opt, (asig + [hab], new_habs)))
         return hijos
-    def is_complete(estado): return len(estado[0]) == len(g)
+
+    def is_complete(estado):
+        return len(estado[0]) == len(g)
+
     A = []
     fx = 0
     ini = ([], h.copy())
     heapq.heappush(A, (-cota_optimista(ini), ini))
+
     while A and -A[0][0] > fx:
         _, estado = heapq.heappop(A)
         for sc, child in branch(estado):
             if is_complete(child):
-                if sc > fx: fx, sol = sc, child
+                if sc > fx:
+                    fx, sol = sc, child
             else:
-                if sc > fx: heapq.heappush(A, (-sc, child))
+                if sc > fx:
+                    heapq.heappush(A, (-sc, child))
     return sol, fx
 
-# Listas globales
+# Dynamic UI helpers
 room_names = []
-
 def add_room(name="", cap=20):
     idx = len(room_names)
     room_names.append(name)
     row = html.TR()
     row <= html.TD(html.INPUT(type="text", value=name, Class="name"))
     row <= html.TD(html.INPUT(type="number", value=cap, Class="cap"))
-    del_btn = html.BUTTON("Borrar", Class="action-btn")
-    del_btn.bind("click", lambda ev, r=row: (r.remove(), room_names.pop(idx)))
-    row <= html.TD(del_btn)
+    btn = html.BUTTON("Borrar", Class="action-btn")
+    btn.bind("click", lambda ev, r=row, i=idx: (r.remove(), room_names.pop(i)))
+    row <= html.TD(btn)
     document["rooms-table"] <= row
 
-# Inicializar habitaciones por defecto
-for name in ["C","A","B","R","I","LL","A","S"] + [f"M{i}" for i in range(1,9)]:
-    add_room(name, 20)
 
-# Gestión de grupos
-def add_group(ch=0, mo=0):
+def add_group(ch=10, mo=10):
     rows = document["groups-table"].get(selector="tr")[1:]
-    grp_id = len(rows) + 1
+    gid = len(rows) + 1
     row = html.TR()
-    row <= html.TD(f"{grp_id}")
+    row <= html.TD(str(gid))
     row <= html.TD(html.INPUT(type="number", value=ch, Class="groupch"))
     row <= html.TD(html.INPUT(type="number", value=mo, Class="groupmo"))
-    del_btn = html.BUTTON("Borrar", Class="action-btn")
-    del_btn.bind("click", lambda ev, r=row: r.remove())
-    row <= html.TD(del_btn)
+    btn = html.BUTTON("Borrar", Class="action-btn")
+    btn.bind("click", lambda ev, r=row: r.remove())
+    row <= html.TD(btn)
     document["groups-table"] <= row
 
-# Inicializar 12 grupos con 10 chicos y 10 chicas cada uno
+# Default init
+for name in ["C","A","B","R","I","LL","A","S"] + [f"M{i}" for i in range(1,9)]:
+    add_room(name, 20)
 for _ in range(12):
     add_group(10, 10)
 
-# Función principal
+# Main run
+
 def run(ev=None):
-    document["error"].text = ""; document["result"].html = ""
+    document["error"].text = ""
+    document["result"].html = ""
     try:
         h = [int(inp.value) for inp in document.get(selector="#rooms-table .cap")]
         g = []
         for row in document.get(selector="#groups-table tr")[1:]:
-            inp = row.get(selector="input")
-            g.append(int(inp[0].value)); g.append(int(inp[1].value))
+            inputs = row.get(selector="input")
+            g.extend([int(inputs[0].value), int(inputs[1].value)])
     except Exception as e:
         document["error"].text = f"Error lectura: {e}"
         return
@@ -131,19 +140,23 @@ def run(ev=None):
     except Exception as e:
         document["error"].text = f"Error reparto: {e}"
         return
-    html_out = ["<h2>Asignación</h2><table><tr><th>Grupo</th><th>Sexo</th><th>Hab</th></tr>"]
+    # Display tables
+    out = ["<h2>Asignación</h2><table><tr><th>Grupo</th><th>Sexo</th><th>Hab</th></tr>"]
     for idx, hab in enumerate(asig):
-        grp = idx//2 + 1; sexo = "CHICOS" if idx%2==0 else "CHICAS"
-        html_out.append(f"<tr><td>G{grp}</td><td>{sexo}</td><td>{room_names[hab]}</td></tr>")
-    html_out.append("</table>")
-    html_out.append("<h2>Capacidades restantes</h2><table><tr><th>Hab</th><th>Cap</th></tr>")
-    for i, cap in enumerate(rem): html_out.append(f"<tr><td>{room_names[i]}</td><td>{cap}</td></tr>")
-    html_out.append(f"</table><p><strong>Vacías:</strong> {vacias}</p>")
-    document["result"].html = "".join(html_out)
+        grp = idx//2 + 1
+        sexo = "CHICOS" if idx%2==0 else "CHICAS"
+        out.append(f"<tr><td>G{grp}</td><td>{sexo}</td><td>{room_names[hab]}</td></tr>")
+    out.append("</table>")
+    out.append("<h2>Capacidades restantes</h2><table><tr><th>Hab</th><th>Cap</th></tr>")
+    for i, cap in enumerate(rem):
+        out.append(f"<tr><td>{room_names[i]}</td><td>{cap}</td></tr>")
+    out.append(f"</table><p><strong>Vacías:</strong> {vacias}</p>")
+    document["result"].html = "".join(out)
 
 document["btn"].bind("click", run)
-document["add-room"].bind("click", lambda e: add_room(prompt("Nombre de habitación:"), 20))
-document["add-group"].bind("click", lambda e: add_group())
+# Bind add
+ document["add-room"].bind("click", lambda e: add_room(prompt("Nombre de habitación:"), 20))
+ document["add-group"].bind("click", lambda e: add_group())
   </script>
 
 </body>
