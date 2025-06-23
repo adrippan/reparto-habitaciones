@@ -1,7 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  …  
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reparto Habitaciones</title>
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json" />
+  <!-- Carga Brython -->
   <script src="https://cdn.jsdelivr.net/npm/brython@3.9.5/brython.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/brython@3.9.5/brython_stdlib.min.js"></script>
 </head>
@@ -9,33 +14,62 @@
 
   <h1>Reparto de Habitaciones</h1>
 
+  <!-- Formulario con los tres inputs que faltaban -->
   <form id="form">
-    <!-- Tus textarea para h, g, mapping -->
+    <label>
+      Habitaciones h (JSON):
+      <br>
+      <textarea id="h" rows="2">[20,6,8,10,20,1,1,1,1,1,1,1,1,1,1,1,1,1,1]</textarea>
+    </label>
+    <br><br>
+    <label>
+      Grupos g (JSON):
+      <br>
+      <textarea id="g" rows="2">[20,3,4,5,6]</textarea>
+    </label>
+    <br><br>
+    <label>
+      Mapping (JSON):
+      <br>
+      <textarea id="mapping" rows="3">
+{"0":"C","1":"A","2":"B","3":"R","4":"I","5":"L","6":"LL","7":"A2","8":"S","9":"M1","10":"M2","11":"M3","12":"M4","13":"M5","14":"M6","15":"M7","16":"M8","17":"M9","18":"M10"}
+      </textarea>
+    </label>
+    <br><br>
     <button type="button" onclick="run()">Asignar</button>
   </form>
 
+  <!-- Zona de salida -->
   <pre id="output"></pre>
 
-  <!-- Aquí va el bloque de Python -->
+  <!-- Importa tu módulo Python -->
+  <script type="text/python" src="repartoHabitaciones.py"></script>
+
+  <!-- Aquí va el bloque Brython que lee el form y muestra la salida -->
   <script type="text/python">
-from browser import document, ajax
+from browser import document
 import json
 import repartoHabitaciones as rh
 
 def run(ev=None):
+    # lee y parsea JSON
     h = json.loads(document["h"].value)
     g = json.loads(document["g"].value)
     mapping = json.loads(document["mapping"].value)
+    # llama a tu función
     sol, vacias = rh.repartoHabitaciones(h, g)
-    out = []
+    # prepara texto
+    lines = []
     for i, hab in enumerate(sol[0]):
-        grupo = i//2 + 1
+        num = i//2 + 1
         sexo = "CHICOS" if i%2==0 else "CHICAS"
-        out.append(f"G{grupo}: {sexo} → habitación {mapping.get(str(hab),hab)}")
-    out.append(f"\nHabitaciones vacías: {vacias}")
-    document["output"].text = "\n".join(out)
+        lines.append(f"G{num}: {sexo} → habitación {mapping.get(str(hab), hab)}")
+    lines.append(f"\nHabitaciones vacías: {vacias}")
+    # vuelca al <pre>
+    document["output"].text = "\n".join(lines)
 
-document["form"].bind("submit", run)
+# opcional: bind si usas type="submit" en vez de button
+# document["form"].bind("submit", run)
   </script>
 
 </body>
