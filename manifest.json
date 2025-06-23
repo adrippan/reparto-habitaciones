@@ -1,0 +1,11 @@
+{
+  "name": "Reparto Habitaciones",
+  "short_name": "Reparto",
+  "start_url": ".",
+  "display": "standalone",
+  "icons": [{
+    "src": "logo.png",
+    "sizes": "192x192",
+    "type": "image/png"
+  }]
+}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  …  
+  <script src="https://cdn.jsdelivr.net/npm/brython@3.9.5/brython.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/brython@3.9.5/brython_stdlib.min.js"></script>
+</head>
+<body onload="brython()">
+
+  <h1>Reparto de Habitaciones</h1>
+
+  <form id="form">
+    <!-- Tus textarea para h, g, mapping -->
+    <button type="button" onclick="run()">Asignar</button>
+  </form>
+
+  <pre id="output"></pre>
+
+  <!-- Aquí va el bloque de Python -->
+  <script type="text/python">
+from browser import document, ajax
+import json
+import repartoHabitaciones as rh
+
+def run(ev=None):
+    h = json.loads(document["h"].value)
+    g = json.loads(document["g"].value)
+    mapping = json.loads(document["mapping"].value)
+    sol, vacias = rh.repartoHabitaciones(h, g)
+    out = []
+    for i, hab in enumerate(sol[0]):
+        grupo = i//2 + 1
+        sexo = "CHICOS" if i%2==0 else "CHICAS"
+        out.append(f"G{grupo}: {sexo} → habitación {mapping.get(str(hab),hab)}")
+    out.append(f"\nHabitaciones vacías: {vacias}")
+    document["output"].text = "\n".join(out)
+
+document["form"].bind("submit", run)
+  </script>
+
+</body>
+</html>
