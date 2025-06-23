@@ -44,39 +44,77 @@
 
   <script type="text/python">
 from browser import document, html, prompt
-import heapq, json
+import heapq, time
 
-# Branch & Bound original
+# Heurístico greedy: first-fit minimizando capacidad remanente
+def greedy(h, g):
+    n = len(h)
+    asig = []
+    habs = h.copy()
+    usados_chicos = set()
+    usados_chicas = set()
+    for idx, size in enumerate(g):
+        es_chico = (idx % 2 == 0)
+        best = None
+        best_rem = None
+        for i in range(n):
+            if habs[i] >= size:
+                if es_chico and i in usados_chicas: continue
+                if not es_chico and i in usados_chicos: continue
+                rem = habs[i] - size
+                if best is None or rem < best_rem:
+                    best, best_rem = i, rem
+        if best is None:
+            return (asig, habs), 0
+        asig.append(best)
+        habs[best] -= size
+        if es_chico: usados_chicos.add(best)
+        else:        usados_chicas.add(best)
+    vacias = len(h) - len(set(asig))
+    return (asig, habs), vacias
+
+# Branch & Bound con poda usando cota optimista
 def repartoHabitaciones(h, g):
-    def cota_optimista(estado): asig, habs = estado; return len(habs) - len(set(asig))
+    # 1) solución inicial greedy para fx
+    (asig0, habs0), fx = greedy(h, g)
+    best = (asig0, habs0)
+    # 2) definiciones de B&B
+    def cota_optimista(estado):
+        asig, habs = estado
+        return len(habs) - len(set(asig))
     def branch(estado):
         asig, habs = estado
         idx = len(asig)
-        habs_chicos = [h for pos,h in enumerate(asig) if pos%2==0]
-        habs_chicas = [h for pos,h in enumerate(asig) if pos%2!=0]
+        habs_chicos = [hab for pos, hab in enumerate(asig) if pos % 2 == 0]
+        habs_chicas = [hab for pos, hab in enumerate(asig) if pos % 2 != 0]
         hijos = []
-        for hab, cap in enumerate(habs):
+        for i, cap in enumerate(habs):
             if g[idx] <= cap:
                 es_chico = (idx % 2 == 0)
-                if (es_chico and hab not in habs_chicas) or (not es_chico and hab not in habs_chicos):
-                    new_h = habs.copy(); new_h[hab] -= g[idx]
-                    opt = cota_optimista((asig+[hab], new_h))
-                    hijos.append((opt, (asig+[hab], new_h)))
+                if (es_chico and i not in habs_chicas) or (not es_chico and i not in habs_chicos):
+                    nh = habs.copy(); nh[i] -= g[idx]
+                    opt = cota_optimista((asig + [i], nh))
+                    hijos.append((opt, (asig + [i], nh)))
         return hijos
-    def is_complete(estado): return len(estado[0]) == len(g)
-    A, fx = [], 0
-    heapq.heappush(A, (-cota_optimista(([], h.copy())), ([], h.copy())))
+    def is_complete(estado):
+        return len(estado[0]) == len(g)
+    # 3) inicializa heap
+    A = []
+    init = ([], h.copy())
+    heapq.heappush(A, (-cota_optimista(init), init))
+    # 4) Bucle principal
     while A and -A[0][0] > fx:
         _, estado = heapq.heappop(A)
-        for sc, child in branch(estado):
+        for opt, child in branch(estado):
             if is_complete(child):
-                if sc > fx: fx, sol = sc, child
+                if opt > fx:
+                    fx, best = opt, child
             else:
-                if sc > fx: heapq.heappush(A, (-sc, child))
-    return sol, fx
+                if opt > fx:
+                    heapq.heappush(A, (-opt, child))
+    return best, fx
 
 # UI helpers
-room_names = []
 def add_room(name="", cap=20):
     idx = len(room_names); room_names.append(name)
     row = html.TR()
@@ -86,14 +124,12 @@ def add_room(name="", cap=20):
     btn.bind("click", lambda ev, r=row, i=idx: (r.remove(), room_names.pop(i)))
     row <= html.TD(btn); document["rooms-table"] <= row
 
-# Default rooms
-def init_rooms():
-    for name in ["C","A","B","R","I","LL","A","S"] + [f"M{i}" for i in range(1,9)]:
-        add_room(name, 20)
-init_rooms()
+# Inicializa habitaciones por defecto
+room_names = []
+for nm in ["C","A","B","R","I","LL","A","S"] + [f"M{i}" for i in range(1,9)]:
+    add_room(nm, 20)
 
-# Dynamic groups
-
+# Dinámico grupos
 def add_group(ch=0, mo=0):
     rows = document["groups-table"].get(selector="tr")[1:]
     gid = len(rows) + 1
@@ -105,19 +141,15 @@ def add_group(ch=0, mo=0):
     btn.bind("click", lambda ev, r=row: r.remove())
     row <= html.TD(btn); document["groups-table"] <= row
 
-
-# 12 groups by default 10 chicos, 10 chicas
-def init_groups():
-    for i in range(12):
-        add_group(10, 10)
-init_groups()
-
 # Run
-def run(ev=None):
+ def run(ev=None):
     document["error"].text = ""; document["result"].html = ""
     try:
-        h = [int(inp.value) for inp in document.get(selector="#rooms-table .cap")]
-        g = [int(inp.value) for inp in document.get(selector="#groups-table .groupch")] + [int(inp.value) for inp in document.get(selector="#groups-table .groupmo")]
+        h = [int(i.value) for i in document.get(selector="#rooms-table .cap")]
+        g = []
+        for r in document.get(selector="#groups-table tr")[1:]:
+            inp = r.get(selector="input")
+            g.extend([int(inp[0].value), int(inp[1].value)])
     except Exception as e:
         document["error"].text = f"Error lectura: {e}"; return
     try:
@@ -133,10 +165,9 @@ def run(ev=None):
     for i, cap in enumerate(rem): out.append(f"<tr><td>{room_names[i]}</td><td>{cap}</td></tr>")
     out.append(f"</table><p><strong>Vacías:</strong> {vacias}</p>")
     document["result"].html = "".join(out)
-document["btn"].bind("click", run)
-# Binds
-document["add-room"].bind("click", lambda e: add_room(prompt("Nombre de habitación:"), 20))
-document["add-group"].bind("click", lambda e: add_group())
+ document["btn"].bind("click", run)
+ document["add-room"].bind("click", lambda e: add_room(prompt("Nombre de habitación:"), 20))
+ document["add-group"].bind("click", lambda e: add_group())
   </script>
 
 </body>
